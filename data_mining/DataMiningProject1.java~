@@ -1,0 +1,546 @@
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.util.*;
+import java.util.HashMap;
+import java.util.Map.Entry;
+import java.lang.*;
+import java.math.BigDecimal;
+import weka.core.Instances;
+import weka.attributeSelection.InfoGainAttributeEval;
+import weka.attributeSelection.Ranker;
+import weka.core.converters.ConverterUtils.DataSource;
+import weka.filters.Filter;
+import weka.filters.supervised.attribute.AttributeSelection;
+
+public class DataMiningProject1 {
+
+	public static ArrayList<String> values = new ArrayList<String>();
+	public static ArrayList<Double> keys = new ArrayList<Double>();
+	public static int Len = 0;
+
+// covariance: This fucntion computes the covariance of two sets 
+ 
+	public static double covariance(double[] a, double[] b) {
+		double a1 = mean_calc(a);
+		double b1 = mean_calc(b);
+		double covar = 0.0;
+		for (int i = 0; i < b.length; i++) {
+			covar += (Math.abs(a[i] - a1) * Math.abs(b[i] - b1));
+		}
+		covar = (double) (covar / (double) (b.length - 1));
+		return covar;
+	}
+//correlation: This function computes the correlation given covariance and standard deviations as arguments
+
+	public static double correlation(double covar, double std1, double std2) {
+
+		return (double) covar / ((double) (std1 * std2));
+	}
+
+//mean_calc: This function computes the mean of a set
+
+	public static double mean_calc(double[] values) {
+		double mean = 0.0;
+		for (int i = 0; i < values.length; i++) {
+			mean += values[i];
+		}
+		mean = (double) (mean / (double) values.length);
+		return mean;
+	}
+
+//stddev_clac: This function computes the standard deviation for a set of values
+
+	public static double stddev_calc(double[] values, double mean) {
+		double dev = 0.0;
+		for (int i = 0; i < values.length; i++) {
+			dev += Math.pow((mean - values[i]), 2);
+		}
+		dev = (double) (dev / (double) values.length);
+		dev = Math.sqrt(dev);
+		return dev;
+	}
+
+//readFile: reads the content of a file with top k genes and returns a List
+
+	public static List<String> readfile(String filename) {
+		List<String> list = new ArrayList<String>();
+		File file = new File(filename);
+		BufferedReader reader = null;
+
+		try {
+			reader = new BufferedReader(new FileReader(file));
+			String text = null;
+
+			while ((text = reader.readLine()) != null) {
+				list.add(text);
+			}
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				if (reader != null) {
+					reader.close();
+				}
+			} catch (IOException e) {
+			}
+		}
+		return list;
+	}
+
+//Task3: This task computes the correlation between each and every  pair of genes for both sets from Task1 and task2 , sorts them in increasing similarity order and writes
+//	 the corresponding pair of genes with its correlation coefficient 
+
+	public static void Task3(Instances ini_instances) {
+		File dir = new File(".");
+		try {
+			HashMap<String, Double> hmap = new HashMap<String, Double>();
+			String[] top1 = readfile(dir.getCanonicalPath() + File.separator + "topkfeatures1.txt")
+					.toArray(new String[0]);
+			String[] top2 = readfile(dir.getCanonicalPath() + File.separator + "topkfeatures2.txt")
+					.toArray(new String[0]);
+			Double[] mean1 = new Double[top1.length];
+			Double[] std1 = new Double[top1.length];
+			Double[] mean2 = new Double[top1.length];
+			Double[] std2 = new Double[top1.length];
+			for (int i = 0; i < top1.length; i++) {
+				int num1 = Integer.parseInt(top1[i].substring(1, top1[i].length()));
+				double[] gene_list1 = ini_instances.attributeToDoubleArray(num1);
+				mean1[i] = mean_calc(gene_list1);
+				std1[i] = stddev_calc(gene_list1, mean1[i]);
+				int num2 = Integer.parseInt(top2[i].substring(1, top2[i].length()));
+				double[] gene_list2 = ini_instances.attributeToDoubleArray(num2);
+				mean2[i] = mean_calc(gene_list2);
+				std2[i] = stddev_calc(gene_list2, mean2[i]);
+			}
+			for (int i = 0; i < top1.length; i++) {
+				int num1 = Integer.parseInt(top1[i].substring(1, top1[i].length()));
+				double[] gene_list1 = ini_instances.attributeToDoubleArray(num1);
+				for (int j = 0; j < top2.length; j++) {
+					int num2 = Integer.parseInt(top2[j].substring(1, top2[j].length()));
+					double[] gene_list2 = ini_instances.attributeToDoubleArray(num2);
+					if (num1 == num2) {
+						hmap.put(top1[i] + "," + top2[j], (double) 1);
+					} else {
+						double corr = correlation(covariance(gene_list1, gene_list2), std1[i], std2[j]);
+						hmap.put(top1[i] + "," + top2[j], corr);
+					}
+				}
+			}
+			Set<Entry<String, Double>> set = hmap.entrySet();
+			List<Entry<String, Double>> list = new ArrayList<Entry<String, Double>>(set);
+			Collections.sort(list, new Comparator<Map.Entry<String, Double>>() {
+				public int compare(Map.Entry<String, Double> o1, Map.Entry<String, Double> o2) {
+					return (o1.getValue()).compareTo(o2.getValue());
+				}
+			});
+			String output3 = dir.getCanonicalPath() + File.separator + "correlatedgenesdata.txt";
+			File file = new File(output3);
+			if (!file.exists()) {
+				file.createNewFile();
+			}
+			BufferedWriter bw = null;
+			FileWriter fw = new FileWriter(file);
+			bw = new BufferedWriter(fw);
+			for (Map.Entry<String, Double> entry : list) {
+				bw.write("( " + entry.getKey() + " )\t" + entry.getValue() + "\n");
+			}
+			bw.close();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+//Task2_filewriting: This function basically sort the gain values in decreasing gain order and sort the corresponding string containing split points and bin information
+//			and writes into file according to the Task2 requirements
+
+	public static void Task2_filewriting(BufferedWriter out1, BufferedWriter out2, BufferedWriter out3, int K)
+			throws IOException {
+		String[] vals = new String[values.size()];
+		vals = values.toArray(vals);
+
+		double[] key_s = new double[keys.size()];
+		for (int i = 0; i < key_s.length; i++) {
+			key_s[i] = keys.get(i);
+		}
+		for (int i = 0; i < key_s.length; i++) {
+			for (int j = i + 1; j < key_s.length; j++) {
+				if (key_s[i] < key_s[j]) {
+					Double temp = key_s[i];
+					key_s[i] = key_s[j];
+					key_s[j] = temp;
+
+					String val = vals[i];
+					vals[i] = vals[j];
+					vals[j] = val;
+
+				}
+			}
+		}
+		for (int i = 0; i < K; i++) {
+			String[] parts = vals[i].split("=");
+			String gene_num = parts[0];
+			String split_1 = parts[1];
+			String split_2 = parts[2];
+			String p1 = parts[3];
+			String n1 = parts[4];
+			String p2 = parts[5];
+			String n2 = parts[6];
+			String p3 = parts[7];
+			String n3 = parts[8];
+			String data = parts[9];
+
+			String[] data_parts = data.split(",");
+			int A_count = 0;
+			int B_count = 0;
+			int C_count = 0;
+
+			for (int j = 0; j < data_parts.length; j++) {
+				if (data_parts[j].equals("a"))
+					A_count++;
+				else if (data_parts[j].equals("c"))
+					C_count++;
+				else
+					B_count++;
+			}
+
+			Double gain = new Double(keys.get(i));
+			Double s1 = new Double(Double.parseDouble(split_1));
+			Double s2 = new Double(Double.parseDouble(split_2));
+
+			Double truncateGain = new BigDecimal(gain).setScale(6, BigDecimal.ROUND_HALF_UP).doubleValue();
+
+			Double truncateS1 = new BigDecimal(s1).setScale(3, BigDecimal.ROUND_HALF_UP).doubleValue();
+
+			Double truncateS2 = new BigDecimal(s2).setScale(3, BigDecimal.ROUND_HALF_UP).doubleValue();
+
+			out1.write(gene_num + "\n");
+
+			out2.write(gene_num + ": " + "Info Gain: " + truncateGain + "; " + "Bins: " + "(-," + truncateS1 + "]" + ","
+					+ p1 + "," + n1 + ";" + "(" + truncateS1 + "," + truncateS2 + "]," + p2 + "," + n2 + "; ("
+					+ truncateS2 + ",+)" + p3 + "," + n3 + "\n" + "\n");
+			if (A_count > C_count)
+				out3.write(data + "negative" + "\n" + "\n");
+			else
+				out3.write(data + "positive" + "\n" + "\n");
+
+		}
+
+		out1.close();
+		out2.close();
+		out3.close();
+
+	}
+
+//entropy_form: This function computes the entropy form given no of pos values and neg values
+
+	public static Double entropy_form(int pos, int neg) {
+
+		if (pos == 0 && neg == 0)
+			return 0.0;
+
+		Double bin_len = new Double(pos + neg);
+
+		Double pos_count = new Double(pos);
+		Double neg_count = new Double(neg);
+
+		Double p = new Double((pos_count) / bin_len);
+		Double n = new Double((neg_count) / bin_len);
+
+		if (pos == 0) {
+			return -(n * (Math.log(n) / Math.log(2)));
+		} else if (neg == 0)
+			return -(p * (Math.log(p) / Math.log(2)));
+		else
+			return -(p * (Math.log(p) / Math.log(2)) + n * (Math.log(n) / Math.log(2)));
+
+	}
+//entropy_gain: This function computes the entropy gain for three bins with number of positive and negative values
+
+	public static double entropy_gain(int p1, int p2, int p3, int n1, int n2, int n3) {
+
+		Double total = new Double(p1 + p2 + p3 + n1 + n2 + n3);
+		Double c1 = new Double(p1 + n1);
+		Double c2 = new Double(p2 + n2);
+		Double c3 = new Double(p3 + n3);
+
+		return (c1 * entropy_form(p1, n1) + c2 * entropy_form(p2, n2) + c3 * entropy_form(p3, n3)) / total;
+	}
+
+//Task2: This function computes the no. of pos's and neg's for a list for a given gene with two splits and also store the gain and formated string in values and keys arraylists
+
+	public static void Task2(double[] gen_list, String[] pos_neg, String gen_name, double bound1, double bound2) {
+
+		String data = "";
+		int p1 = 0, p2 = 0, p3 = 0;
+		int n1 = 0, n2 = 0, n3 = 0;
+		for (int i = 0; i < gen_list.length; i++) {
+			if (gen_list[i] <= bound1) {
+				if (pos_neg[i].equals("positive"))
+					p1++;
+				else
+					n1++;
+
+				data += "a,";
+
+			} else if (gen_list[i] > bound1 && gen_list[i] <= bound2) {
+				if (pos_neg[i].equals("positive"))
+					p2++;
+				else
+					n2++;
+				data += "b,";
+			} else if (gen_list[i] > bound2) {
+				if (pos_neg[i].equals("positive"))
+					p3++;
+				else
+					n3++;
+				data += "c,";
+
+			}
+
+		}
+
+		Double ent = new Double(entropy(pos_neg) - entropy_gain(p1, p2, p3, n1, n2, n3));
+		String value = gen_name + "=" + bound1 + "=" + bound2 + "=" + p1 + "=" + n1 + "=" + p2 + "=" + n2 + "=" + p3
+				+ "=" + n3 + "=" + data;
+		if (gen_name.startsWith("G")) {
+			values.add(value);
+			keys.add(ent);
+		}
+
+	}
+
+//information_split: This function computes the information split given two bins  
+
+	public static Double information_split(String[] fst_bin, String[] sec_bin) {
+
+		Double fst_bin_len = new Double(fst_bin.length);
+		Double sec_bin_len = new Double(sec_bin.length);
+
+		Double len = new Double(fst_bin_len + sec_bin_len);
+		return (fst_bin_len / len) * entropy(fst_bin) + (sec_bin_len / len) * entropy(sec_bin);
+
+	}
+//entropy: This function computes the entropy for a given gene_list
+
+	public static Double entropy(String[] bin) {
+
+		int bin_len = bin.length;
+
+		Double pos_count = new Double(count_positive(bin));
+		Double neg_count = new Double(bin_len - pos_count);
+
+		Double p = new Double((pos_count) / bin_len);
+		Double n = new Double((neg_count) / bin_len);
+
+		if (p == 0)
+			return -(n * (Math.log(n) / Math.log(2)));
+		else if (n == 0)
+			return -(p * (Math.log(p) / Math.log(2)));
+		else
+			return -(p * (Math.log(p) / Math.log(2)) + n * (Math.log(n) / Math.log(2)));
+
+	}
+//count_positive: This function computes the no.of pos's in a given name
+
+	public static int count_positive(String[] pos_neg) {
+		int count = 0;
+		for (int i = 0; i < pos_neg.length; i++) {
+			if (pos_neg[i].equals("positive")) {
+				count++;
+			}
+		}
+		return count;
+	}
+//calculateNetEntropy: This function computes the best split for a given bin and returns a string with split and gain values
+
+	public static String calculateNetEntropy(String[] pos_neg) {
+
+		Double previous_gain = new Double(1);
+		Double gain = new Double(0);
+		int best_split = 1;
+
+		Double entropy_val = new Double(entropy(pos_neg));
+
+		for (int i = 0; i < pos_neg.length - 1; i++) {
+			String fst_bin = "";
+			String sec_bin = "";
+			int j = 0;
+			for (; j <= i; j++) {
+				fst_bin = fst_bin + pos_neg[j] + ",";
+
+			}
+			String[] first_bin = fst_bin.split(",");
+			for (; j < pos_neg.length; j++) {
+				sec_bin = sec_bin + pos_neg[j] + ",";
+
+			}
+			String[] second_bin = sec_bin.split(",");
+			gain = entropy_val - information_split(first_bin, second_bin);
+
+			if (gain < previous_gain) {
+				previous_gain = gain;
+				best_split = i + 1;
+			}
+
+		}
+		String str = "" + best_split + ";" + previous_gain;
+		return str;
+
+	}
+
+	public static void main(String[] args) throws Exception {
+
+		File dir = new File(".");
+		if (args.length < 2) {
+			System.out.println("Invalid Arguments ");
+			System.out.println("<Input filename> <K-size>");
+		} else {
+			String filename = args[0];
+			int K = Integer.parseInt(args[1]);
+			String out_arf = dir.getCanonicalPath() + File.separator + "desired_data.arff";
+			BufferedWriter out_arff = new BufferedWriter(new FileWriter(out_arf));
+
+			String classes = "";
+			int row_count = 0;
+			int col_count = 0;
+//In try loop a the given file is read and and is converted into desired_data.arff supported by weka
+			try {
+				BufferedReader br = new BufferedReader(new FileReader(filename));
+				String strLine;
+
+				if ((strLine = br.readLine()) != null) {
+					String[] parts = strLine.split(",");
+					col_count = parts.length;
+					classes = classes + parts[parts.length - 1] + ",";
+					row_count++;
+
+				}
+				out_arff.write("@relation cancer_dataset" + "\n" + "\n");
+
+				for (int i = 0; i < col_count - 1; i++) {
+					out_arff.write("@attribute G" + (i + 1) + " numeric " + "\n");
+				}
+				out_arff.write("@attribute class {positive,negative}" + "\n\n");
+				out_arff.write("@data\n");
+				out_arff.write(strLine + "\n");
+				while ((strLine = br.readLine()) != null) {
+					out_arff.write(strLine + "\n");
+					String[] parts = strLine.split(",");
+					classes = classes + parts[parts.length - 1] + ",";
+					row_count++;
+
+				}
+				out_arff.close();
+				br.close();
+			} catch (Exception e) {// Catch exception if any
+				System.err.println("Error: " + e.getMessage());
+			}
+
+			Instances ini_instances = null;
+			Instances slt_instances = null;
+			BufferedWriter out = null;
+			BufferedWriter out1 = null;
+			BufferedWriter out2 = null;
+			BufferedWriter out3 = null;
+
+			DataSource frData = new DataSource("desired_data.arff");
+			ini_instances = frData.getDataSet();
+			ini_instances.setClassIndex(ini_instances.numAttributes() - 1);
+
+			AttributeSelection filter = new AttributeSelection();
+			InfoGainAttributeEval infogain = new InfoGainAttributeEval();
+			Ranker search = new Ranker();
+			filter.setEvaluator(infogain);
+			filter.setSearch(search);
+			filter.setInputFormat(ini_instances);
+
+			slt_instances = Filter.useFilter(ini_instances, filter);
+
+			String output = dir.getCanonicalPath() + File.separator + "topkfeatures1.txt";
+			String output1 = dir.getCanonicalPath() + File.separator + "topkfeatures2.txt";
+			String output2 = dir.getCanonicalPath() + File.separator + "entropybins.txt";
+			String output3 = dir.getCanonicalPath() + File.separator + "entropydata.txt";
+
+			out = new BufferedWriter(new FileWriter(output));
+			out1 = new BufferedWriter(new FileWriter(output1));
+			out2 = new BufferedWriter(new FileWriter(output2));
+			out3 = new BufferedWriter(new FileWriter(output3));
+// for each instance i.e, the genes(attribute) task2 is performed
+			for (int i = 0; i < ini_instances.numAttributes(); i++) {
+				double[] gene_list = ini_instances.attributeToDoubleArray(i);
+				double[] gen_lis = ini_instances.attributeToDoubleArray(i);
+
+				String[] pos_neg = classes.split(",");
+				Arrays.sort(gen_lis);
+
+				HashMap<Double, String> hmap = new HashMap<Double, String>();
+				for (int k = 0; k < gene_list.length; k++) {
+
+					hmap.put(gene_list[k], pos_neg[k]);
+
+				}
+
+				Map<Double, String> map = new TreeMap<Double, String>(hmap);
+
+				String pos_neg_list = "";
+				for (Double key : map.keySet()) {
+					pos_neg_list = pos_neg_list + map.get(key) + ",";
+
+				}
+
+				String[] sorted_pos_neg = pos_neg_list.split(",");
+
+				String first_split = calculateNetEntropy(sorted_pos_neg);
+
+				String[] vals = first_split.split(";");
+
+				int fst_split_point = Integer.parseInt(vals[0]);
+				double gain1 = Double.parseDouble(vals[1]);
+
+				double bound1 = (gen_lis[fst_split_point] + gen_lis[fst_split_point - 1]) / 2;
+
+				String sec_split_1 = "";
+				String sec_split_2 = "";
+//with a bound1 the bin is split into two,thsi gets the first split
+				int x = 0;
+				for (; x < fst_split_point; x++) {
+					sec_split_1 = sec_split_1 + sorted_pos_neg[x] + ",";
+				}
+				for (; x < sorted_pos_neg.length; x++) {
+					sec_split_2 = sec_split_2 + sorted_pos_neg[x] + ",";
+				}
+
+				String[] second_split_1 = sec_split_1.split(",");
+				String[] second_split_2 = sec_split_2.split(",");
+				String secnd_split = null;
+// the second bin is again sent to calculateNetEntropy method to get a second split
+				secnd_split = calculateNetEntropy(second_split_2);
+				String[] val = secnd_split.split(";");
+				int sec_split_point = Integer.parseInt(val[0]);
+				double gain2 = Double.parseDouble(val[1]);
+				double bound2 = (gen_lis[sec_split_point] + gen_lis[sec_split_point - 1]) / 2;
+				Task2(gene_list, pos_neg, ini_instances.attribute(i).name(), bound1, bound2);
+
+			}
+//loop for writing file as required in task1
+			for (int j = 0; j < K; j++) {
+				out.write(slt_instances.attribute(j).name() + "\n");
+
+			}
+			out.close();
+			Task2_filewriting(out1, out2, out3, K);
+			Task3(ini_instances);
+			System.out.println("Execution Completed Succesfully");
+		}
+	}
+
+}

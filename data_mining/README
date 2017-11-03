@@ -1,0 +1,22 @@
+Set the classpath for weka using following command:
+	
+	export CLASSPATH=./weka.jar:$CLASSPATH
+
+Copy the weka.jar libraries in the same folder containing the files
+
+Run the "make" command , this compiles the .java file using makefile
+
+After this, run the following command:
+
+	java .:./weka.jar <file-name> <K-value>
+
+Example: 
+	java .:./weka.jar p1data.txt 15
+
+the above command will result in following files being generated:
+
+	topkfeatures1.txt
+	topkfeatures2.txt
+	entropybin.txt
+	entropydata.txt
+	correlatedgenesdata.txt 
